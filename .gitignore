@@ -29,6 +29,7 @@ dist/
 # Generated application outputs
 outputs/*
 !outputs/README.md
+.cache/
 
 # Local sample data
 sample_data/*

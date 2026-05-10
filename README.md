@@ -30,6 +30,17 @@ The codebase is deliberately modular:
 
 Every extracted metric must carry provenance: source file, source type, source location, raw text, extraction method, confidence, and caveats.
 
+## Token And Cost Optimisation
+
+The assistant should not send full documents to the LLM by default. Loader-created chunks are first enriched with simple token estimates, then filtered for housing metric keywords and deduplicated using a normalised text hash.
+
+This keeps the extraction stage cheaper, faster, and easier to explain:
+
+- irrelevant policy prose is skipped;
+- repeated boilerplate is sent once;
+- every skipped and retained chunk can still be counted;
+- token savings are reported through `TokenUsageReport`.
+
 ## Why The LLM Is Used Only For Extraction
 
 The LLM is useful for turning messy policy text into structured records, especially when tables, slide bullets, and prose use inconsistent language. It should not decide whether numbers conflict. That decision must remain inspectable, reproducible, and testable.
@@ -51,11 +62,29 @@ The reconciliation layer will compare normalised metric records by canonical met
 This repository currently contains the initial project foundation only:
 
 - FastAPI app shell with health endpoints.
+- End-to-end local pipeline that reads `sample_data/` and writes JSON outputs.
 - Configuration loading.
 - Core Pydantic schemas.
-- Placeholder ingestion, chunking, extraction, reconciliation, and reporting modules.
+- Source-aware ingestion for Word, PowerPoint, and Excel files.
+- Token-aware chunk metadata, relevance filtering, and deduplication.
+- Rule-based extraction, mock LLM extraction, and deterministic discrepancy detection.
+- Placeholder reporting module.
 - Minimal tests for early deterministic helpers.
 - Architecture and design documentation.
 
-Complex business logic, full document parsing, real LLM extraction, persistence, authentication, and production deployment hardening are intentionally out of scope for this initial scaffold.
+Complex business logic, real LLM extraction, persistence, authentication, and production deployment hardening are intentionally out of scope for this initial scaffold.
 
+Run the local pipeline from the project root with:
+
+```powershell
+python -m app.pipeline
+```
+
+Or start the API and call:
+
+```text
+POST /run-analysis
+GET /outputs/metrics
+GET /outputs/discrepancies
+GET /outputs/report
+```

@@ -2,7 +2,7 @@
 
 This scaffold does not yet include:
 
-- real `.docx`, `.xlsx`, or `.pptx` parsing;
+- advanced `.docx`, `.xlsx`, or `.pptx` parsing for every edge case;
 - real LLM calls;
 - semantic chunking;
 - persistence;
