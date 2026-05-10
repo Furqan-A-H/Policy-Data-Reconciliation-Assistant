@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Policy Data Reconciliation Report</title>
+  </head>
+  <body>
+    <h1>Policy Data Reconciliation Report</h1>
+    {% if discrepancies %}
+      <ul>
+        {% for discrepancy in discrepancies %}
+          <li>
+            <strong>{{ discrepancy.canonical_metric_name }}</strong>:
+            {{ discrepancy.explanation }}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>No discrepancies detected.</p>
+    {% endif %}
+  </body>
+</html>

@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Build and packaging
+build/
+dist/
+*.egg-info/
+
+# Generated application outputs
+outputs/*
+!outputs/README.md
+
+# Local sample data
+sample_data/*
+!sample_data/README.md
+
+# Logs
+*.log
+logs/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker/local runtime clutter
+*.pid
+.docker/
