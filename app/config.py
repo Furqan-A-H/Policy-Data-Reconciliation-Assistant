@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4o-mini"
     mock_llm: bool = True
     cache_dir: Path = Path(".cache/llm_extractions")
+    input_dir: Path = Path("sample_data")
+    output_dir: Path = Path("outputs")
     max_input_tokens: int = Field(default=12000, gt=0)
 
     model_config = SettingsConfigDict(

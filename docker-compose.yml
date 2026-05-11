@@ -1,10 +1,15 @@
 services:
-  api:
+  reconciliation-assistant:
     build: .
     env_file:
       - .env.example
+    environment:
+      MOCK_LLM: "true"
+      INPUT_DIR: sample_data
+      OUTPUT_DIR: outputs
     ports:
       - "8000:8000"
     volumes:
       - ./sample_data:/app/sample_data:ro
       - ./outputs:/app/outputs
+      - ./.cache:/app/.cache

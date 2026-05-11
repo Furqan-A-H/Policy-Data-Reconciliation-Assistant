@@ -5,6 +5,7 @@ from typing import Any
 from app.chunking.deduplicator import deduplicate_chunks
 from app.chunking.relevance_filter import filter_relevant_chunks
 from app.chunking.semantic_chunker import prepare_chunks_for_extraction
+from app.config import settings
 from app.extraction.llm_client import LLMClient
 from app.extraction.rule_extractor import extract_metrics_rule_based
 from app.extraction.schema import DiscrepancyRecord, MetricRecord, SourceChunk
@@ -12,7 +13,6 @@ from app.extraction.token_budget import build_token_usage_report
 from app.ingestion.base import available_loaders, load_files_from_directory
 from app.reconciliation.discrepancy_detector import detect_discrepancies
 from app.reporting.report_builder import build_html_report
-from app.config import settings
 
 METRICS_OUTPUT = "extracted_metrics.json"
 DISCREPANCIES_OUTPUT = "discrepancies.json"
@@ -30,13 +30,11 @@ def run_analysis(input_dir: Path, output_dir: Path) -> dict[str, Any]:
     unique_chunks, duplicate_chunk_count = deduplicate_chunks(prepared_chunks)
     relevant_chunks, skipped_chunks = filter_relevant_chunks(unique_chunks)
 
-    rule_metrics_by_chunk: dict[str, list[MetricRecord]] = {}
     rule_metrics: list[MetricRecord] = []
     chunks_for_llm: list[SourceChunk] = []
 
     for chunk in relevant_chunks:
         extracted = extract_metrics_rule_based([chunk])
-        rule_metrics_by_chunk[chunk.chunk_id] = extracted
         rule_metrics.extend(extracted)
 
         if not extracted or max(metric.confidence for metric in extracted) < 0.8:
@@ -143,7 +141,7 @@ def _write_json(path: Path, payload: Any) -> None:
 
 
 def main() -> None:
-    summary = run_analysis(Path("sample_data"), Path("outputs"))
+    summary = run_analysis(settings.input_dir, settings.output_dir)
     print(json.dumps(summary, indent=2))
 
 

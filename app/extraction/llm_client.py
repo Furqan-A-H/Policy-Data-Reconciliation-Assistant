@@ -40,19 +40,6 @@ class LLMClient:
         self._write_cache(cache_path, metrics)
         return metrics
 
-    def extract_metrics(self, text: str) -> list[dict]:
-        """Compatibility helper for older call sites."""
-        chunk = SourceChunk(
-            chunk_id="ad-hoc",
-            source_file="unknown",
-            source_type="api",
-            source_location="ad-hoc text",
-            content_type="text",
-            text=text,
-            metadata={},
-        )
-        return [metric.model_dump() for metric in self.extract_metrics_from_chunk(chunk)]
-
     def _extract_mock(self, chunk: SourceChunk) -> list[MetricRecord]:
         rule_metrics = extract_metrics_rule_based([chunk])
         return [

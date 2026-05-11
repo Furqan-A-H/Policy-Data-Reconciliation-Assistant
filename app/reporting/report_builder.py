@@ -19,11 +19,15 @@ def build_html_report(
         autoescape=select_autoescape(["html"]),
     )
     template = environment.get_template("report.html")
+    sorted_discrepancies = sorted(
+        discrepancies,
+        key=lambda item: {"high": 0, "medium": 1, "low": 2}.get(item.severity, 3),
+    )
     return template.render(
-        executive_summary=_build_executive_summary(metrics, discrepancies, mock_llm),
-        key_findings=_build_key_findings(metrics, discrepancies, token_usage_report),
+        executive_summary=_build_executive_summary(metrics, sorted_discrepancies, mock_llm),
+        key_findings=_build_key_findings(metrics, sorted_discrepancies, token_usage_report),
         metric_rows=[_metric_row(metric) for metric in metrics],
-        discrepancy_rows=[_discrepancy_row(discrepancy) for discrepancy in discrepancies],
+        discrepancy_rows=[_discrepancy_row(discrepancy) for discrepancy in sorted_discrepancies],
         caveats=_source_caveats(metrics),
         token_usage=token_usage_report,
         mock_llm=mock_llm,
@@ -85,6 +89,10 @@ def _build_key_findings(
             f"{len(high_severity)} high severity conflict or conflicts should not be quoted externally until validated."
         )
 
+    reason_counts = _reason_counts(discrepancies)
+    for reason, count in reason_counts.items():
+        findings.append(f"{count} discrepancy or discrepancies were classified as {reason}.")
+
     return findings
 
 
@@ -110,9 +118,9 @@ def _discrepancy_row(discrepancy: DiscrepancyRecord) -> dict[str, Any]:
         "year": discrepancy.year or "",
         "period": discrepancy.period or "",
         "geography": discrepancy.geography or "",
-        "source_a": first_record.source_file if first_record else "",
+        "source_a": _format_source_reference(first_record),
         "value_a": _format_value(first_record.value) if first_record else "",
-        "source_b": second_record.source_file if second_record else "",
+        "source_b": _format_source_reference(second_record),
         "value_b": _format_value(second_record.value) if second_record else "",
         "severity": discrepancy.severity,
         "likely_reason": discrepancy.likely_reason,
@@ -156,3 +164,16 @@ def _format_value(value: float | int | str) -> str:
         return f"{value:,.0f}" if value.is_integer() else f"{value:,.2f}"
 
     return str(value)
+
+
+def _format_source_reference(record: MetricRecord | None) -> str:
+    if record is None:
+        return ""
+    return f"{record.source_file} ({record.source_location})"
+
+
+def _reason_counts(discrepancies: list[DiscrepancyRecord]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for discrepancy in discrepancies:
+        counts[discrepancy.likely_reason] = counts.get(discrepancy.likely_reason, 0) + 1
+    return counts

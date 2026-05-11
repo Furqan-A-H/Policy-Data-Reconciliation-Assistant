@@ -106,10 +106,14 @@ def _build_explanation(
     sorted_values = sorted(values)
     metric = records[0].canonical_metric_name.replace("_", " ")
     location = _format_dimensions(records[0])
+    source_values = "; ".join(
+        f"{record.source_file} reports {record.value}" for record in records
+    )
     return (
         f"{len(records)} sources report different values for {metric}{location}: "
         f"{sorted_values[0]} to {sorted_values[-1]}. "
-        f"This is a {severity} discrepancy, likely reason: {likely_reason}."
+        f"Source values: {source_values}. "
+        f"This is a {severity} discrepancy. Likely reason: {likely_reason}."
     )
 
 
@@ -125,10 +129,16 @@ def _build_recommended_action(
         )
 
     if severity == "high" and likely_reason == "unknown":
-        return "Do not quote this figure externally until validated against an official source."
+        return (
+            "Do not quote this figure externally until validated against an official source. "
+            "Ask the source owner to confirm which figure is current."
+        )
 
     if likely_reason == "internal_document_conflict":
-        return "Resolve the conflict within the source document before using the figure."
+        return (
+            "Treat this as an internal contradiction. Resolve the conflict within the "
+            "source document before using the figure in analysis or briefings."
+        )
 
     if likely_reason == "formula_or_workbook_issue":
         return "Review the workbook formula or linked range before confirming the figure."

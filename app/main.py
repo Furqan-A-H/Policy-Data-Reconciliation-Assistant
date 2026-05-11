@@ -30,22 +30,22 @@ def health_check() -> dict[str, str]:
 
 @app.post("/run-analysis")
 def run_default_analysis() -> dict[str, Any]:
-    return run_analysis(Path("sample_data"), Path("outputs"))
+    return run_analysis(settings.input_dir, settings.output_dir)
 
 
 @app.get("/outputs/discrepancies")
 def get_discrepancies() -> Any:
-    return _read_output_json(Path("outputs") / "discrepancies.json")
+    return _read_output_json(settings.output_dir / "discrepancies.json")
 
 
 @app.get("/outputs/metrics")
 def get_metrics() -> Any:
-    return _read_output_json(Path("outputs") / "extracted_metrics.json")
+    return _read_output_json(settings.output_dir / "extracted_metrics.json")
 
 
 @app.get("/outputs/report", response_class=HTMLResponse)
 def get_report() -> str:
-    path = Path("outputs") / "reconciliation_report.html"
+    path = settings.output_dir / "reconciliation_report.html"
     if not path.exists():
         raise HTTPException(
             status_code=404,

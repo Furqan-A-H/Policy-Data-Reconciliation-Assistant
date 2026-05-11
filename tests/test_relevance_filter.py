@@ -37,6 +37,19 @@ def test_filter_relevant_chunks_skips_generic_policy_text() -> None:
     assert [chunk.chunk_id for chunk in skipped_chunks] == ["generic"]
 
 
+def test_filter_relevant_chunks_keeps_preliminary_and_revised_caveats() -> None:
+    relevant_chunks, skipped_chunks = filter_relevant_chunks(
+        [
+            _chunk("Preliminary estimate for UK starts is under review.", "prelim"),
+            _chunk("Revised annual completions will be published next month.", "revised"),
+            _chunk("Project board minutes were approved.", "generic"),
+        ]
+    )
+
+    assert [chunk.chunk_id for chunk in relevant_chunks] == ["prelim", "revised"]
+    assert [chunk.chunk_id for chunk in skipped_chunks] == ["generic"]
+
+
 def test_deduplicate_chunks_removes_normalised_duplicates() -> None:
     unique_chunks, duplicate_count = deduplicate_chunks(
         [

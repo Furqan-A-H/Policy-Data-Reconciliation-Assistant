@@ -10,6 +10,10 @@ def test_canonicalise_uk_starts() -> None:
     assert canonicalise_metric_name("UK starts") == "housing_starts"
 
 
+def test_canonicalise_completions() -> None:
+    assert canonicalise_metric_name("completions") == "housing_completions"
+
+
 def test_canonicalise_housing_completions() -> None:
     assert canonicalise_metric_name("Housing Completions") == "housing_completions"
 
@@ -17,7 +21,7 @@ def test_canonicalise_housing_completions() -> None:
 def test_normalise_unit() -> None:
     assert normalise_unit(" Homes ") == "dwellings"
     assert normalise_unit("%") == "percent"
-    assert normalise_unit("£") == "gbp"
+    assert normalise_unit("\u00a3") == "gbp"
 
 
 def test_parse_numeric_value_with_commas() -> None:
@@ -25,7 +29,7 @@ def test_parse_numeric_value_with_commas() -> None:
 
 
 def test_parse_numeric_value_gbp_thousands() -> None:
-    assert parse_numeric_value("£285k") == 285000
+    assert parse_numeric_value("\u00a3285k") == 285000
 
 
 def test_parse_numeric_value_percent() -> None:

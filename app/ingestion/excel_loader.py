@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
 
 from app.extraction.schema import SourceChunk
 from app.ingestion.base import BaseLoader
@@ -29,10 +30,19 @@ class ExcelLoader(BaseLoader):
                             max_row=row_number,
                         )
                     )
-                    cells = [
-                        _cell_to_text(formula_cell.value, value_cell.value, formula_cell.coordinate)
-                        for formula_cell, value_cell in zip(formula_row, value_row)
-                    ]
+                    cells = []
+                    for column_number, (formula_cell, value_cell) in enumerate(
+                        zip(formula_row, value_row),
+                        start=1,
+                    ):
+                        coordinate = getattr(
+                            formula_cell,
+                            "coordinate",
+                            f"{get_column_letter(column_number)}{row_number}",
+                        )
+                        cells.append(
+                            _cell_to_text(formula_cell.value, value_cell.value, coordinate)
+                        )
                     text = " | ".join(cell for cell in cells if cell)
                     if not text:
                         continue

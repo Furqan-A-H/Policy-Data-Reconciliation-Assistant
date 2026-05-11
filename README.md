@@ -1,90 +1,403 @@
 # Policy Data Reconciliation Assistant
 
-## Problem
+## 1. Project Overview
 
-Housing policy analysts often receive related data points across Word briefings, Excel workbooks, and PowerPoint decks. The same metric may appear with different labels, locations, periods, units, caveats, or levels of precision. Manually reconciling those figures is slow, difficult to audit, and error-prone.
+Policy Data Reconciliation Assistant is a FastAPI-based technical assessment project for reconciling housing policy metrics across Word, Excel, and PowerPoint sources.
 
-## Solution
+The project demonstrates a modular applied AI design: use language models where language understanding helps, but keep numeric comparison, discrepancy detection, and source reasoning deterministic and auditable.
 
-This project is the foundation for a FastAPI-based reconciliation assistant. It will ingest policy source documents, extract structured housing metrics, normalise those metrics, detect numeric discrepancies using deterministic Python, and generate a policy-friendly report for nontechnical analysts.
+The tool does not automatically declare the final truth. It helps analysts identify conflicts, inspect provenance, and decide where human review is needed.
 
-The intended workflow is:
+## 2. Problem Being Solved
 
-1. Load content from `.docx`, `.xlsx`, and `.pptx` files.
-2. Split content into source chunks with provenance.
-3. Filter and deduplicate chunks before any LLM call.
-4. Extract metrics into a strict Pydantic schema.
-5. Normalise labels, units, periods, and geographies.
-6. Detect discrepancies deterministically.
-7. Build a clear reconciliation report with source references.
+Policy teams often receive the same housing metric in multiple formats:
 
-## Architecture Idea
+- a Word briefing may describe revised annual housing starts;
+- an Excel workbook may contain workbook rows and formula-derived values;
+- a PowerPoint deck may contain preliminary stakeholder-facing figures.
 
-The codebase is deliberately modular:
+The same metric can appear with different wording, caveats, periods, geographies, or values. Manually checking these sources is slow and easy to get wrong.
 
-- `app/ingestion` handles source-specific file loading.
-- `app/chunking` prepares token-aware chunks and filters irrelevant content.
-- `app/extraction` owns prompts, schema contracts, token budgeting, and the LLM client boundary.
-- `app/reconciliation` owns deterministic normalisation, reliability scoring, and discrepancy detection.
-- `app/reporting` turns reconciled results into analyst-friendly output.
+## 3. Why This Matters For Policy Teams
 
-Every extracted metric must carry provenance: source file, source type, source location, raw text, extraction method, confidence, and caveats.
+Housing metrics are often used in briefings, public reporting, internal dashboards, and ministerial submissions. Quoting the wrong figure can undermine trust and create avoidable rework.
 
-## Token And Cost Optimisation
+Policy analysts need:
 
-The assistant should not send full documents to the LLM by default. Loader-created chunks are first enriched with simple token estimates, then filtered for housing metric keywords and deduplicated using a normalised text hash.
+- clear provenance for every extracted figure;
+- visibility of preliminary, revised, rounded, or caveated values;
+- deterministic comparison of numeric values;
+- plain-English explanations of conflicts;
+- a workflow that supports human judgement rather than replacing it.
 
-This keeps the extraction stage cheaper, faster, and easier to explain:
+## 4. What The Tool Does
 
-- irrelevant policy prose is skipped;
-- repeated boilerplate is sent once;
-- every skipped and retained chunk can still be counted;
-- token savings are reported through `TokenUsageReport`.
+The assistant currently:
 
-## Why The LLM Is Used Only For Extraction
+- loads `.docx`, `.xlsx`, and `.pptx` files from `sample_data/`;
+- converts source content into provenance-aware chunks;
+- estimates tokens and filters irrelevant chunks before any LLM call;
+- extracts obvious metrics with deterministic rules first;
+- supports mock LLM extraction by default;
+- can call OpenAI for schema-first extraction when configured;
+- normalises metric names, units, and numeric values;
+- detects discrepancies using deterministic Python;
+- generates JSON outputs and a policy-friendly HTML reconciliation report.
 
-The LLM is useful for turning messy policy text into structured records, especially when tables, slide bullets, and prose use inconsistent language. It should not decide whether numbers conflict. That decision must remain inspectable, reproducible, and testable.
+## Domain Scope
 
-In this design, the LLM boundary is narrow:
+The ingestion and reconciliation pipeline is designed to be reusable across
+Word, Excel, and PowerPoint policy documents. However, the current metric
+taxonomy and rule-based extraction patterns are intentionally scoped to the
+housing policy assessment.
 
-- identify relevant text;
-- extract metric candidates into a strict schema;
-- optionally draft a final plain-language summary.
+The project is not hardcoded to one sample file, but it does expect
+housing-related metrics such as housing starts, completions, affordable housing
+percentage, and new-build prices.
 
-## Why Discrepancy Detection Is Deterministic
+To support another policy domain, the main extension points would be the
+canonical metric mappings, keyword relevance filters, and rule-based extraction
+patterns. The deterministic reconciliation and reporting layers would remain
+largely unchanged.
 
-Numeric reconciliation is a policy audit task. Analysts need to know exactly why two records were flagged and be able to reproduce the result. Deterministic Python rules are easier to test, explain, and defend than model-generated judgments.
+## 5. Architecture Diagram
 
-The reconciliation layer will compare normalised metric records by canonical metric name, time period, geography, unit, and numeric value. Severity and recommended action should be based on transparent rules.
+```text
+sample_data/
+    |
+    v
+Ingestion Layer
+  - Word paragraphs and tables
+  - Excel worksheet rows, formulas, visible values
+  - PowerPoint slide text and tables
+    |
+    v
+SourceChunk objects with provenance
+    |
+    v
+Token Optimisation Layer
+  - chunk metadata
+  - relevance filtering
+  - deduplication
+    |
+    v
+Extraction Layer
+  - rule-based extraction first
+  - LLM fallback when needed
+  - mock LLM mode for local/test runs
+  - cached LLM responses
+    |
+    v
+MetricRecord objects
+    |
+    v
+Reconciliation Layer
+  - canonical metric names
+  - unit and value normalisation
+  - deterministic discrepancy detection
+  - source reliability scoring
+    |
+    v
+Reporting Layer
+  - extracted_metrics.json
+  - discrepancies.json
+  - token_usage_report.json
+  - reconciliation_report.html
+```
 
-## Current Project Status
+## 6. Data Ingestion Approach
 
-This repository currently contains the initial project foundation only:
+### Word
 
-- FastAPI app shell with health endpoints.
-- End-to-end local pipeline that reads `sample_data/` and writes JSON outputs.
-- Configuration loading.
-- Core Pydantic schemas.
-- Source-aware ingestion for Word, PowerPoint, and Excel files.
-- Token-aware chunk metadata, relevance filtering, and deduplication.
-- Rule-based extraction, mock LLM extraction, and deterministic discrepancy detection.
-- Placeholder reporting module.
-- Minimal tests for early deterministic helpers.
-- Architecture and design documentation.
+The DOCX loader uses `python-docx` to extract:
 
-Complex business logic, real LLM extraction, persistence, authentication, and production deployment hardening are intentionally out of scope for this initial scaffold.
+- paragraphs;
+- table rows.
 
-Run the local pipeline from the project root with:
+Each extracted chunk includes source provenance such as `paragraph 4` or `table 2 row 3`.
+
+### Excel
+
+The Excel loader uses `openpyxl` to extract worksheet rows. It preserves:
+
+- sheet name;
+- row number;
+- visible values;
+- formula text where a cell contains a formula.
+
+Example provenance: `sheet Summary row 5`.
+
+### PowerPoint
+
+The PPTX loader uses `python-pptx` to extract:
+
+- slide text;
+- table text from slides where available.
+
+Example provenance: `slide 2` or `slide 4 table 1`.
+
+## 7. LLM Design
+
+The LLM is used only for candidate metric extraction and optional summary-style language. It is not used for numeric judgement.
+
+The extraction prompt is schema-first:
+
+- extract only housing metrics explicitly present in the chunk;
+- return JSON only;
+- do not infer missing values;
+- do not guess missing year, geography, period, or unit;
+- include confidence and caveats;
+- include `source_file`, `source_type`, and `source_location`;
+- return an empty list if no relevant metric is present.
+
+This reduces hallucination risk because the model is constrained to structured extraction. The downstream Python code validates outputs into `MetricRecord` objects.
+
+`MOCK_LLM=true` is the default so the project can run, demo, and test without an API key.
+
+The default real model is `gpt-4o-mini`. I chose it as a practical default for
+this prototype because the LLM task is narrow structured extraction, where low
+latency and lower cost matter more than long-form reasoning. The model name is
+configurable through `OPENAI_MODEL`, and the rest of the system depends on the
+`MetricRecord` schema rather than on a specific provider or model.
+
+## 8. Why Discrepancy Detection Is Deterministic
+
+Numeric reconciliation is an audit-style task. Analysts need to know exactly why two values were flagged.
+
+For that reason, discrepancy detection is deterministic Python:
+
+- records are grouped by canonical metric, year, period, geography, and unit;
+- numeric values are compared directly;
+- severity is calculated from relative difference;
+- likely reasons are classified from explicit source properties and caveats.
+
+The LLM does not decide whether two figures conflict and does not choose the authoritative source.
+
+## 9. Token And Cost Optimisation
+
+The tool is designed not to send full documents to the LLM.
+
+Current controls:
+
+- **Semantic chunking:** loader-created chunks are kept as the initial meaningful unit, with character and token estimates added.
+- **Relevance filtering:** chunks are filtered using housing metric keywords and caveat indicators.
+- **Deduplication:** repeated chunks are removed using a normalised text hash.
+- **Rule-first extraction:** obvious metrics are extracted before using the LLM.
+- **LLM fallback:** only chunks not confidently handled by rules are sent to the LLM.
+- **Caching:** LLM extraction results are cached by chunk text and prompt version.
+- **Token usage report:** the pipeline writes `token_usage_report.json` showing chunks created, skipped, sent to the LLM, and estimated savings.
+
+This design reduces token cost and limits the amount of text exposed to the model.
+
+## 10. Source Reliability Model
+
+The project includes a simple deterministic source reliability score:
+
+- API/live official source: `1.0`
+- revised annual report: `0.9`
+- Excel workbook: `0.75`
+- preliminary stakeholder PowerPoint: `0.55`
+- unknown: `0.5`
+
+This is intentionally simple. It is used to support recommended actions, not to automatically declare truth.
+
+## 11. Example Findings From The Housing Sample Data
+
+The system is designed to surface findings such as:
+
+- **2024 preliminary vs revised:** a stakeholder deck reports UK starts around `134,470` as preliminary, while a revised annual source reports `132,460`. This should be flagged as `preliminary_vs_revised`.
+- **2025 internal contradiction:** one part of a 2025 report shows starts of `145,320` and completions of `162,700`, while another part shows starts of `180,250` and completions of `208,050`. If these come from the same file, they should be flagged as `internal_document_conflict`.
+- **2025 deck vs report:** a stakeholder deck reports 2025 UK starts around `156,200` or revised around `154,500`, while a report shows `180,250`. This should be a high severity discrepancy.
+
+These examples are not hardcoded. They fall out of canonical metric mapping, caveat detection, deterministic grouping, and relative difference scoring.
+
+More detail is in `docs/example_findings.md`.
+
+## 12. How To Run Locally
+
+Clone the repository:
+
+```powershell
+git clone https://github.com/Furqan-A-H/Policy-Data-Reconciliation-Assistant.git
+cd Policy-Data-Reconciliation-Assistant
+```
+
+Create and activate a virtual environment:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+By default the project runs in mock LLM mode, so no API key is required:
+
+```env
+MOCK_LLM=true
+```
+
+To use a real OpenAI model, copy `.env.example` to `.env` and add your own API
+key:
+
+Then update `.env`:
+
+```env
+MOCK_LLM=false
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_MODEL=gpt-4o-mini
+```
+
+```powershell
+Copy-Item .env.example .env
+```
+
+
+
+Start FastAPI:
+
+```powershell
+uvicorn app.main:app --reload
+```
+
+Open:
+
+```text
+http://127.0.0.1:8000
+```
+
+Interactive API documentation is available at:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+Add input files to:
+
+```text
+sample_data/
+```
+
+Supported file types are `.docx`, `.xlsx`, and `.pptx`.
+
+Run the analysis:
+
+```powershell
+Invoke-RestMethod -Method Post http://127.0.0.1:8000/run-analysis
+```
+
+`/run-analysis` is a POST endpoint, so entering it directly in a browser address
+bar will not run the analysis. Use the PowerShell command above or the FastAPI
+docs page.
+
+Or run the pipeline directly:
 
 ```powershell
 python -m app.pipeline
 ```
 
-Or start the API and call:
+## 13. How To Run With Docker
+
+Build and run the lightweight FastAPI container:
+
+```powershell
+docker compose up --build
+```
+
+Docker Desktop must be running before this command is used.
+
+The service is named `reconciliation-assistant` and listens on:
 
 ```text
-POST /run-analysis
+http://127.0.0.1:8000
+```
+
+The compose file mounts:
+
+- `./sample_data` to `/app/sample_data`;
+- `./outputs` to `/app/outputs`;
+- `./.cache` to `/app/.cache`.
+
+Stop the container:
+
+```powershell
+docker compose down
+```
+
+## 14. How To Run Tests
+
+After installing requirements:
+
+```powershell
+pytest
+```
+
+The tests use mock LLM mode and do not require external API calls.
+
+Current test coverage includes:
+
+- normalisation;
+- relevance filtering;
+- deduplication;
+- ingestion loaders;
+- rule extraction;
+- mock LLM extraction and caching;
+- deterministic discrepancy detection;
+- pipeline smoke coverage.
+
+## 15. Outputs Generated
+
+The pipeline writes files to `outputs/`:
+
+- `extracted_metrics.json`
+- `discrepancies.json`
+- `token_usage_report.json`
+- `reconciliation_report.html`
+
+API endpoints:
+
+```text
 GET /outputs/metrics
 GET /outputs/discrepancies
 GET /outputs/report
 ```
+
+## 16. Limitations And Risks
+
+This is not production-ready software. It is an assessment-ready foundation.
+
+Known limitations:
+
+- document parsing handles common structures, not every possible Office edge case;
+- rule extraction is deliberately conservative;
+- LLM extraction depends on prompt quality and schema validation;
+- source reliability scoring is a simple heuristic;
+- no persistent database is included;
+- no authentication or user management is included;
+- no asynchronous job queue is included;
+- no full observability stack is included.
+
+The main risk is false confidence. The tool should support analyst review, not replace it.
+
+## 17. What I Would Do With More Time
+
+Next steps I would prioritise:
+
+- add richer sample data and expected-output fixtures;
+- introduce structured OpenAI JSON schema output instead of plain JSON mode;
+- add a review UI for accepting, rejecting, or annotating discrepancies;
+- persist runs, source files, extracted metrics, and analyst decisions;
+- add confidence calibration based on source type and extraction method;
+- improve source reliability with configurable policy rules;
+- add OpenTelemetry-style tracing for ingestion and extraction steps;
+- add background processing for large document batches;
+- add export to PDF or Word for analyst circulation.
+
+## 18. Why I Did Not Use LangGraph Or A Full Agent Framework
+
+I avoided LangGraph, LangChain, and a full agent framework deliberately.
+
+For this assessment, the core challenge is not autonomous planning. It is reliable document ingestion, schema-constrained extraction, deterministic reconciliation, and clear provenance.
+
+A framework could be useful later if the workflow becomes multi-step, interactive, or tool-rich. At this stage, a small explicit pipeline is easier to test, easier to explain, and less likely to hide important behaviour behind orchestration abstractions.
+
+That is the lead-engineering tradeoff here: keep the AI boundary narrow, keep the comparison logic auditable, and make the system understandable before adding orchestration complexity.

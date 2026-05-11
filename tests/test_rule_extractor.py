@@ -82,6 +82,30 @@ def test_captures_preliminary_caveat() -> None:
     assert metrics[0].caveat == "preliminary"
 
 
+def test_extracts_multiple_metrics_from_one_text_part() -> None:
+    metrics = extract_metrics_rule_based(
+        [_chunk("2025 UK housing starts 145,320 and completions 162,700 warning")]
+    )
+
+    assert [metric.canonical_metric_name for metric in metrics] == [
+        "housing_starts",
+        "housing_completions",
+    ]
+    assert [metric.value for metric in metrics] == [145320, 162700]
+    assert all(metric.year == 2025 for metric in metrics)
+    assert all(metric.geography == "UK" for metric in metrics)
+    assert all(metric.caveat == "warning" for metric in metrics)
+
+
+def test_captures_not_for_external_release_caveat() -> None:
+    metrics = extract_metrics_rule_based(
+        [_chunk("2025 UK starts around 156,200 preliminary not for external release")]
+    )
+
+    assert len(metrics) == 1
+    assert metrics[0].caveat == "preliminary, not for external release"
+
+
 def test_does_not_extract_unrelated_numbers() -> None:
     metrics = extract_metrics_rule_based(
         [_chunk("The meeting had 12 attendees and lasted 45 minutes.")]

@@ -33,8 +33,12 @@ CAVEAT_TERMS = [
     "revised",
     "rounded",
     "formula",
+    "formula issue",
     "off by 1",
+    "off-by-1",
     "warning",
+    "not for external release",
+    "definition difference",
 ]
 
 VALUE_PATTERN = re.compile(
@@ -64,38 +68,43 @@ def extract_metrics_with_rules(chunk: SourceChunk) -> list[MetricRecord]:
 
 def _extract_from_text_part(chunk: SourceChunk, text: str) -> list[MetricRecord]:
     lower_text = text.lower()
+    extracted: list[MetricRecord] = []
+    seen: set[tuple[str, str]] = set()
 
     for alias in METRIC_ALIASES:
-        alias_match = re.search(rf"(?<!\w){re.escape(alias)}(?!\w)", lower_text)
-        if not alias_match:
-            continue
+        for alias_match in re.finditer(rf"(?<!\w){re.escape(alias)}(?!\w)", lower_text):
+            value_match = _find_value_near_alias(text, alias_match.end())
+            if value_match is None:
+                continue
 
-        value_match = _find_value_near_alias(text, alias_match.end())
-        if value_match is None:
-            continue
+            raw_value = value_match.group("value")
+            canonical_name = canonicalise_metric_name(alias)
+            dedupe_key = (canonical_name, raw_value)
+            if dedupe_key in seen:
+                continue
 
-        raw_value = value_match.group("value")
-        metric_name = text[alias_match.start() : alias_match.end()].strip()
-        return [
-            MetricRecord(
-                metric_name=metric_name,
-                canonical_metric_name=canonicalise_metric_name(alias),
-                value=parse_numeric_value(raw_value),
-                unit=_infer_unit(alias, raw_value),
-                year=_extract_year(text),
-                period=_extract_period(text),
-                geography=_extract_geography(text, alias),
-                source_file=chunk.source_file,
-                source_type=chunk.source_type,
-                source_location=chunk.source_location,
-                extraction_method="rule_based",
-                confidence=0.85,
-                caveat=_extract_caveat(text),
-                raw_text=text,
+            seen.add(dedupe_key)
+            metric_name = text[alias_match.start() : alias_match.end()].strip()
+            extracted.append(
+                MetricRecord(
+                    metric_name=metric_name,
+                    canonical_metric_name=canonical_name,
+                    value=parse_numeric_value(raw_value),
+                    unit=_infer_unit(alias, raw_value),
+                    year=_extract_year(text),
+                    period=_extract_period(text),
+                    geography=_extract_geography(text, alias),
+                    source_file=chunk.source_file,
+                    source_type=chunk.source_type,
+                    source_location=chunk.source_location,
+                    extraction_method="rule_based",
+                    confidence=0.85,
+                    caveat=_extract_caveat(text),
+                    raw_text=text,
+                )
             )
-        ]
 
-    return []
+    return extracted
 
 
 def _split_text_parts(text: str) -> list[str]:
@@ -152,5 +161,12 @@ def _infer_unit(alias: str, raw_value: str) -> str:
 
 def _extract_caveat(text: str) -> str | None:
     text_lower = text.lower()
-    matches = [term for term in CAVEAT_TERMS if term in text_lower]
+    matches: list[str] = []
+
+    for term in CAVEAT_TERMS:
+        if term in text_lower:
+            label = "off by 1" if term == "off-by-1" else term
+            if label not in matches:
+                matches.append(label)
+
     return ", ".join(matches) if matches else None
