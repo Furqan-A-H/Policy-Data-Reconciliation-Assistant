@@ -351,6 +351,9 @@ Current test coverage includes:
 - mock LLM extraction and caching;
 - deterministic discrepancy detection;
 - pipeline smoke coverage.
+-
+-
+-
 
 ## 15. Outputs Generated
 
