@@ -297,39 +297,47 @@ python -m app.pipeline
 
 ## 13. How To Run With Docker
 
-Build and run the lightweight FastAPI container:
+- git clone https://github.com/Furqan-A-H/Policy-Data-Reconciliation-Assistant.git
 
-```powershell
-docker compose up --build
-```
+- cd Policy-Data-Reconciliation-Assistant
 
-Docker Desktop must be running before this command is used.
+- Put `.docx`, `.xlsx`, or `.pptx` files into:
+- sample_data/
 
-The service is named `reconciliation-assistant` and listens on:
+- Start Docker Desktop.
 
-```text
-http://127.0.0.1:8000
-```
+- Build and run the FastAPI container:
+- docker compose up --build
+
+- The service will be available at:
+- http://127.0.0.1:8000
+
+- Interactive API documentation is available at:
+- http://127.0.0.1:8000/docs
+
+- Run the analysis from another PowerShell window:
+- Invoke-RestMethod -Method Post http://127.0.0.1:8000/run-analysis
+
+- View the generated HTML report:
+- http://127.0.0.1:8000/outputs/report
+
+- Generated output files appear locally in:
+- outputs/
 
 The compose file mounts:
-
 - `./sample_data` to `/app/sample_data`;
 - `./outputs` to `/app/outputs`;
 - `./.cache` to `/app/.cache`.
 
 Stop the container:
-
-```powershell
 docker compose down
-```
+
 
 ## 14. How To Run Tests
 
-After installing requirements:
+- After installing requirements:
+- pytest
 
-```powershell
-pytest
-```
 
 The tests use mock LLM mode and do not require external API calls.
 
@@ -355,11 +363,10 @@ The pipeline writes files to `outputs/`:
 
 API endpoints:
 
-```text
 GET /outputs/metrics
 GET /outputs/discrepancies
 GET /outputs/report
-```
+
 
 ## 16. Limitations And Risks
 
