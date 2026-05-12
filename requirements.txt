@@ -9,4 +9,5 @@ pandas
 jinja2
 python-dotenv
 openai
+python-multipart
 pytest

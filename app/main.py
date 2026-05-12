@@ -1,12 +1,15 @@
 import json
+import shutil
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse
 
 from app.config import settings
 from app.pipeline import run_analysis
+
+SUPPORTED_UPLOAD_EXTENSIONS = {".docx", ".xlsx", ".xlsm", ".pptx"}
 
 app = FastAPI(
     title=settings.app_name,
@@ -26,6 +29,33 @@ def read_root() -> dict[str, str]:
 @app.get("/health")
 def health_check() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.post("/upload-file")
+def upload_file(file: UploadFile = File(...)) -> dict[str, str]:
+    filename = Path(file.filename or "").name
+    if not filename:
+        raise HTTPException(status_code=400, detail="Uploaded file must have a filename.")
+
+    suffix = Path(filename).suffix.lower()
+    if suffix not in SUPPORTED_UPLOAD_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file type. Upload .docx, .xlsx, .xlsm, or .pptx files.",
+        )
+
+    settings.input_dir.mkdir(parents=True, exist_ok=True)
+    destination = settings.input_dir / filename
+
+    with destination.open("wb") as output_file:
+        shutil.copyfileobj(file.file, output_file)
+
+    return {
+        "status": "uploaded",
+        "filename": filename,
+        "saved_to": str(destination.resolve()),
+        "next_step": "Run POST /run-analysis to process uploaded files.",
+    }
 
 
 @app.post("/run-analysis")

@@ -279,6 +279,9 @@ sample_data/
 
 Supported file types are `.docx`, `.xlsx`, and `.pptx`.
 
+Alternatively, use the FastAPI docs page to upload files through
+`POST /upload-file`. Uploaded files are saved into `sample_data/`.
+
 Run the analysis:
 
 ```powershell
@@ -351,8 +354,6 @@ Current test coverage includes:
 - mock LLM extraction and caching;
 - deterministic discrepancy detection;
 - pipeline smoke coverage.
--
--
 -
 
 ## 15. Outputs Generated
